@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
  <class>PlateaGEEDialogBase</class>
  <widget class="QDialog" name="PlateaGEEDialogBase">
@@ -6,165 +7,142 @@
     <x>0</x>
     <y>0</y>
     <width>400</width>
-    <height>300</height>
+    <height>414</height>
    </rect>
   </property>
-  <property name="windowTitle">
-   <string>PlateaGEE</string>
+  <property name="font">
+   <font>
+    <pointsize>12</pointsize>
+   </font>
   </property>
-  <widget class="QLabel" name="lon_label">
-   <property name="geometry">
-    <rect>
-     <x>20</x>
-     <y>20</y>
-     <width>80</width>
-     <height>16</height>
-    </rect>
-   </property>
-   <property name="text">
-    <string>Longitud:</string>
-   </property>
-  </widget>
-  <widget class="QLineEdit" name="lon_input">
-   <property name="geometry">
-    <rect>
-     <x>105</x>
-     <y>20</y>
-     <width>113</width>
-     <height>20</height>
-    </rect>
-   </property>
-  </widget>
-  <widget class="QLabel" name="lat_label">
-   <property name="geometry">
-    <rect>
-     <x>20</x>
-     <y>50</y>
-     <width>80</width>
-     <height>16</height>
-    </rect>
-   </property>
-   <property name="text">
-    <string>Latitud:</string>
-   </property>
-  </widget>
-  <widget class="QLineEdit" name="lat_input">
-   <property name="geometry">
-    <rect>
-     <x>105</x>
-     <y>50</y>
-     <width>113</width>
-     <height>20</height>
-    </rect>
-   </property>
-  </widget>
-  <widget class="QLabel" name="start_date_label">
-   <property name="geometry">
-    <rect>
-     <x>20</x>
-     <y>80</y>
-     <width>80</width>
-     <height>16</height>
-    </rect>
-   </property>
-   <property name="text">
-    <string>Fecha inicio:</string>
-   </property>
-  </widget>
-  <widget class="QDateEdit" name="start_date_edit">
-   <property name="geometry">
-    <rect>
-     <x>105</x>
-     <y>80</y>
-     <width>240</width>
-     <height>20</height>
-    </rect>
-   </property>
-  </widget>
-  <widget class="QLabel" name="end_date_label">
-   <property name="geometry">
-    <rect>
-     <x>20</x>
-     <y>110</y>
-     <width>80</width>
-     <height>16</height>
-    </rect>
-   </property>
-   <property name="text">
-    <string>Fecha fin:</string>
-   </property>
-  </widget>
-  <widget class="QDateEdit" name="end_date_edit">
-   <property name="geometry">
-    <rect>
-     <x>105</x>
-     <y>110</y>
-     <width>240</width>
-     <height>20</height>
-    </rect>
-   </property>
-  </widget>
-  <widget class="QPushButton" name="ok_button">
-    <property name="geometry">
-      <rect>
-        <x>150</x>
-        <y>240</y>
-        <width>100</width>
-        <height>30</height>
-      </rect>
-    </property>
-    <property name="text">
-      <string>OK</string>
-    </property>
-  </widget>
-  
-  <widget class="QPushButton" name="back_button">
-    <property name="geometry">
-      <rect>
-        <x>20</x>
-        <y>240</y>
-        <width>100</width>
-        <height>30</height>
-      </rect>
-    </property>
-    <property name="text">
-      <string>Regresar</string>
-    </property>
-  </widget>
+  <property name="windowTitle">
+   <string>Información satelital</string>
+  </property>
+  <property name="windowIcon">
+   <iconset>
+    <normaloff>:/plugins/plateagee/icons/satellite.svg</normaloff>:/plugins/plateagee/icons/satellite.svg</iconset>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout">
+    <item>
+      <widget class="QLabel" name="lon_label">
+        <property name="text">
+          <string>Longitud:</string>
+        </property>
+      </widget>
+    </item>
+    <item>
+      <widget class="QLineEdit" name="lon_input"/>
+    </item>
+    <item>
+      <widget class="QLabel" name="lat_label">
+        <property name="text">
+          <string>Latitud:</string>
+        </property>
+      </widget>
+    </item>
+    <item>
+      <widget class="QLineEdit" name="lat_input"/>
+    </item>
+    <item>
+      <widget class="QLabel" name="start_date_label">
+        <property name="text">
+          <string>Fecha inicio:</string>
+        </property>
+      </widget>
+    </item>
+    <item>
+      <widget class="QDateEdit" name="start_date_edit"/>
+    </item>
+    <item>
+      <widget class="QLabel" name="end_date_label">
+        <property name="text">
+          <string>Fecha fin:</string>
+        </property>
+      </widget>
+    </item>
+    <item>
+      <widget class="QDateEdit" name="end_date_edit"/>
+    </item>
+    <item>
+      <widget class="QPushButton" name="ok_button">
+        <property name="text">
+          <string>OK</string>
+        </property>
+      </widget>
+    </item>
+    <item>
+      <widget class="QPushButton" name="back_button">
+        <property name="text">
+          <string>Regresar</string>
+        </property>
+      </widget>
+    </item>
+    <item>
+      <widget class="QPushButton" name="select_point_button">
+        <property name="text">
+          <string>Punto</string>
+        </property>
+      </widget>
+    </item>
+    <item>
+      <widget class="QPushButton" name="select_rectangle_button">
+        <property name="geometry">
+          <rect>
+            <x>310</x>
+            <y>240</y>
+            <width>30</width>
+            <height>30</height>
+          </rect>
+        </property>
+        <property name="text">
+          <string>Rectangulo</string>
+        </property>
+      </widget>
+    </item>
 
-  <widget class="QPushButton" name="select_point_button">
-    <property name="geometry">
-      <rect>
-        <x>270</x>
-        <y>240</y>
-        <width>100</width>
-        <height>30</height>
-      </rect>
-    </property>
-    <property name="text">
-      <string>Seleccionar punto</string>
-    </property>
-  </widget>
 
-  <widget class="QFrame" name="plot_widget">
-    <property name="geometry">
-      <rect>
-        <x>20</x>
-        <y>20</y>
-        <width>360</width>
-        <height>200</height>
-      </rect>
-    </property>
-    <property name="frameShape">
-      <enum>QFrame::StyledPanel</enum>
-    </property>
-    <property name="frameShadow">
-      <enum>QFrame::Sunken</enum>
-    </property>
-  </widget>
+    <item>
+        <widget class="QWidget" name="plot_widget">
+            <property name="geometry">
+                <rect>
+                    <x>20</x>
+                    <y>20</y>
+                    <width>360</width>
+                    <height>200</height>
+                </rect>
+            </property>
+        </widget>
+    </item>
 
+    <item>
+      <spacer name="verticalSpacer">
+        <property name="orientation">
+          <enum>Qt::Vertical</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+          <size>
+            <width>10</width>
+            <height>1</height>
+          </size>
+        </property>
+      </spacer>
+    </item>
+  </layout>
  </widget>
+ <layoutdefault spacing="6" margin="11"/>
+ <customwidgets>
+  <customwidget>
+   <class>QgsCheckableComboBox</class>
+   <extends>QComboBox</extends>
+   <header>qgscheckablecombobox.h</header>
+  </customwidget>
+  <customwidget>
+   <class>QgsCollapsibleGroupBox</class>
+   <extends>QGroupBox</extends>
+   <header>qgscollapsiblegroupbox.h</header>
+   <container>1</container>
+  </customwidget>
+ </customwidgets>
  <resources/>
- <connections>
- </connections>
+ <connections/>
 </ui>

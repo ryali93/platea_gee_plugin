@@ -21,23 +21,99 @@
  *                                                                         *
  ***************************************************************************/
 """
+# from PyQt5 import QtWebEngineWidgets  # Esto debe estar al principio
 from qgis.gui import QgsMapToolEmitPoint
 from qgis.core import QgsCoordinateTransform, QgsCoordinateReferenceSystem, QgsProject
 from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication, QDate, QUrl
 from qgis.PyQt.QtGui import QIcon
-from qgis.PyQt.QtWidgets import QAction, QLineEdit, QMessageBox, QPushButton
+from qgis.PyQt.QtWidgets import QAction, QLineEdit, QMessageBox, QPushButton, QVBoxLayout
+
 import plotly.graph_objs as go
 # from PyQt5.QtWebEngineWidgets import QWebEngineView
-from PyQt5.QtWebKitWidgets import QWebView
+# from PyQt5.QtWebKitWidgets import QWebView
 
 # Initialize Qt resources from file resources.py
 from .resources import *
 # Import the code for the dialog
 from .PlateaGEE_dialog import PlateaGEEDialog
 import os.path
-
 import json
 import requests
+
+from qgis.gui import QgsMapToolEmitPoint
+from qgis.PyQt.QtCore import pyqtSignal
+from qgis.core import QgsRectangle
+from qgis.gui import QgsRubberBand
+from qgis.core import QgsWkbTypes
+from qgis.PyQt.QtGui import QColor
+from qgis.core import QgsPointXY
+from qgis.core import QgsVectorLayer, QgsFeature, QgsGeometry
+
+from matplotlib.dates import DateFormatter
+from matplotlib.figure import Figure
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+
+class RectangleMapTool(QgsMapToolEmitPoint):
+    rectangleSelected = pyqtSignal(QgsRectangle)
+
+    def __init__(self, canvas):
+        self.canvas = canvas
+        QgsMapToolEmitPoint.__init__(self, self.canvas)
+        self.rubberBand = QgsRubberBand(self.canvas, QgsWkbTypes.PolygonGeometry)
+        self.rubberBand.setColor(QColor(255, 0, 0, 100))
+        self.rubberBand.setWidth(1)
+        self.reset()
+
+    def reset(self):
+        self.startPoint = self.endPoint = None
+        self.isEmittingPoint = False
+        self.rubberBand.reset(QgsWkbTypes.PolygonGeometry)
+
+    def canvasPressEvent(self, e):
+        self.startPoint = self.toMapCoordinates(e.pos())
+        self.endPoint = self.startPoint
+        self.isEmittingPoint = True
+        self.showRect(self.startPoint, self.endPoint)
+
+    def canvasReleaseEvent(self, e):
+        self.isEmittingPoint = False
+        r = self.rectangle()
+        if r is not None:
+            self.rectangleSelected.emit(r)
+        self.reset()
+
+    def canvasMoveEvent(self, e):
+        if not self.isEmittingPoint:
+            return
+
+        self.endPoint = self.toMapCoordinates(e.pos())
+        self.showRect(self.startPoint, self.endPoint)
+
+    def showRect(self, startPoint, endPoint):
+        self.rubberBand.reset(QgsWkbTypes.PolygonGeometry)
+        if startPoint.x() == endPoint.x() or startPoint.y() == endPoint.y():
+            return
+
+        point1 = QgsPointXY(startPoint.x(), startPoint.y())
+        point2 = QgsPointXY(startPoint.x(), endPoint.y())
+        point3 = QgsPointXY(endPoint.x(), endPoint.y())
+        point4 = QgsPointXY(endPoint.x(), startPoint.y())
+
+        self.rubberBand.addPoint(point1, False)
+        self.rubberBand.addPoint(point2, False)
+        self.rubberBand.addPoint(point3, False)
+        self.rubberBand.addPoint(point4, True)
+        self.rubberBand.show()
+
+    def rectangle(self):
+        if self.startPoint is None or self.endPoint is None:
+            return None
+        elif self.startPoint.x() == self.endPoint.x() or self.startPoint.y() == self.endPoint.y():
+            return None
+
+        return QgsRectangle(self.startPoint, self.endPoint)
+
 
 class PlateaGEE:
     """QGIS Plugin Implementation."""
@@ -73,6 +149,9 @@ class PlateaGEE:
         # Check if plugin was started the first time in current QGIS session
         # Must be set in initGui() to survive plugin reloads
         self.first_start = None
+
+        # Define a rectangle layer to be used for the selection
+        self.rectangle_layer = None
 
     # noinspection PyMethodMayBeStatic
     def tr(self, message):
@@ -196,9 +275,11 @@ class PlateaGEE:
         self.dockwidget.ok_button.clicked.connect(self.on_ok_button_clicked)
         self.dockwidget.back_button.clicked.connect(self.on_back_button_clicked)
 
-        # self.dockwidget.select_point_button = self.dockwidget.findChild(QPushButton, 'select_point_button')
+        # Conectar la señal clicked del botón con el método on_select_point_button_clicked
         self.dockwidget.select_point_button.clicked.connect(self.on_select_point_button_clicked)
 
+        # Conectar la señal clicked del botón con el método on_select_rectangle_button_clicked
+        self.dockwidget.select_rectangle_button.clicked.connect(self.on_select_rectangle_button_clicked)
 
     def unload(self):
         """Removes the plugin menu item and icon from QGIS GUI."""
@@ -208,26 +289,72 @@ class PlateaGEE:
                 action)
             self.iface.removeToolBarIcon(action)
 
+    # def create_plot(self, data):
+    #         # Extraer las listas de tiempo, NDVI y NDMI
+    #         time = [entry['time'] for entry in data]
+    #         ndvi = [entry['NDVI'] for entry in data]
+    #         ndmi = [entry['NDMI'] for entry in data]
+
+    #         # Crear el gráfico con Plotly
+    #         fig = go.Figure()
+    #         fig.add_trace(go.Scatter(x=time, y=ndvi, mode='lines+markers', name='NDVI'))
+    #         fig.add_trace(go.Scatter(x=time, y=ndmi, mode='lines+markers', name='NDMI'))
+    #         fig.update_layout(title='NDVI y NDMI a lo largo del tiempo')
+
+    #         # Convertir el gráfico de Plotly en una página HTML
+    #         plot_html = fig.to_html(full_html=False)
+
+    #         # Crear un QWebView para mostrar el gráfico de Plotly en el plugin
+    #         plot_view = QWebView(self.dockwidget.plot_widget)
+    #         plot_view.setHtml(plot_html)
+    #         plot_view.setGeometry(0, 0, self.dockwidget.plot_widget.geometry().width(), self.dockwidget.plot_widget.geometry().height())
+    #         plot_view.show()
+
+    def clear_layout(self, layout):
+        """ Elimina todos los widgets del layout dado. """
+        if layout is not None:
+            while layout.count():
+                child = layout.takeAt(0)
+                widget = child.widget()
+                if widget:
+                    widget.deleteLater()
+    
     def create_plot(self, data):
-            # Extraer las listas de tiempo, NDVI y NDMI
-            time = [entry['time'] for entry in data]
-            ndvi = [entry['NDVI'] for entry in data]
-            ndmi = [entry['NDMI'] for entry in data]
+        # Extraer las listas de tiempo, NDVI y NDMI
+        time = [entry['time'] for entry in data]
+        ndvi = [entry['NDVI'] for entry in data]
+        ndmi = [entry['NDMI'] for entry in data]
 
-            # Crear el gráfico con Plotly
-            fig = go.Figure()
-            fig.add_trace(go.Scatter(x=time, y=ndvi, mode='lines+markers', name='NDVI'))
-            fig.add_trace(go.Scatter(x=time, y=ndmi, mode='lines+markers', name='NDMI'))
-            fig.update_layout(title='NDVI y NDMI a lo largo del tiempo', xaxis_title='Tiempo', yaxis_title='Valores')
+        date_form = DateFormatter(f"%m-%d")
 
-            # Convertir el gráfico de Plotly en una página HTML
-            plot_html = fig.to_html(full_html=False)
+        # Crear el gráfico con Matplotlib
+        plt.rc('font', family='serif')
+        fig = Figure(figsize=(5, 4), dpi=100)
+        ax = fig.add_subplot(111)
+        ax.plot(time, ndvi, marker='o', label='NDVI')
+        ax.plot(time, ndmi, marker='o', label='NDMI')
+        ax.set_title('NDVI y NDMI')
+        ax.set_ylim([-0.2, 1])
+        ax.xaxis.set_major_formatter(date_form)
+        ax.set_xticklabels(ax.get_xticks(), rotation = 30)
+        ax.legend()
+        
+        print("Plot created")
 
-            # Crear un QWebView para mostrar el gráfico de Plotly en el plugin
-            plot_view = QWebView(self.dockwidget.plot_widget)
-            plot_view.setHtml(plot_html)
-            plot_view.setGeometry(0, 0, self.dockwidget.plot_widget.geometry().width(), self.dockwidget.plot_widget.geometry().height())
-            plot_view.show()
+        # Crear un FigureCanvasQTAgg para mostrar el gráfico de Matplotlib en el plugin
+        plot_canvas = FigureCanvas(fig)
+
+        # Si ya existe un layout, elimínalo
+        layout = self.dockwidget.plot_widget.layout()
+        if layout is None:
+            layout = QVBoxLayout(self.dockwidget.plot_widget)
+            self.dockwidget.plot_widget.setLayout(layout)
+        else:
+            self.clear_layout(layout)
+        
+        # Crea un nuevo layout y añade el gráfico
+        layout.addWidget(plot_canvas)
+        print("Plot added to layout")
 
 
     def on_ok_button_clicked(self):
@@ -292,6 +419,107 @@ class PlateaGEE:
         self.dockwidget.end_date_edit.show()
         self.dockwidget.ok_button.show()
     
+    def on_polygon_button_clicked(self, layer):
+        # Obtener la capa temporal
+        start_date = self.dockwidget.start_date_edit.date().toString("yyyy-MM-dd")
+        end_date = self.dockwidget.end_date_edit.date().toString("yyyy-MM-dd")
+
+        # Extraer las coordenadas del rectángulo
+        lon_min = layer.extent().xMinimum()
+        lat_min = layer.extent().yMinimum()
+        lon_max = layer.extent().xMaximum()
+        lat_max = layer.extent().yMaximum()
+        
+        # Construir la URL para la solicitud GET
+        url = f'http://localhost:5000/get_ndvi_ndmi_polygon?lon_min={lon_min}&lat_min={lat_min}&lon_max={lon_max}&lat_max={lat_max}&start_date={start_date}&end_date={end_date}'
+
+        # Hacer la solicitud GET y parsear la respuesta JSON
+        response = requests.get(url)
+        if response.status_code == 200:
+            data = json.loads(response.text)
+            # Muestra los resultados en un cuadro de mensaje
+            msg = QMessageBox()
+            msg.setWindowTitle("Resultados")
+            msg.setText(json.dumps(data, indent=2))
+            msg.exec_()
+        else:
+            # Muestra un mensaje de error si algo sale mal
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Critical)
+            msg.setWindowTitle("Error")
+            msg.setText(f"Error al obtener datos de la API: {response.status_code}")
+            msg.exec_()
+        
+        self.create_plot(data)
+
+        # Ocultar campos de entrada y mostrar el gráfico
+        self.dockwidget.lon_label.hide()
+        self.dockwidget.lat_label.hide()
+        self.dockwidget.start_date_label.hide()
+        self.dockwidget.end_date_label.hide()
+        self.dockwidget.lon_input.hide()
+        self.dockwidget.lat_input.hide()
+        self.dockwidget.start_date_edit.hide()
+        self.dockwidget.end_date_edit.hide()
+        self.dockwidget.ok_button.hide()
+        self.dockwidget.plot_widget.show()
+        self.dockwidget.back_button.show()
+    
+
+    def transform_rectangle(self, rectangle):
+        # Crear objetos CRS para los sistemas de coordenadas de origen y destino
+        source_crs = QgsCoordinateReferenceSystem(25830)
+        dest_crs = QgsCoordinateReferenceSystem(4326)
+
+        # Crear una transformación de coordenadas
+        transform = QgsCoordinateTransform(source_crs, dest_crs, QgsProject.instance())
+
+        # Transformar las coordenadas
+        rectangle = transform.transformBoundingBox(rectangle)
+
+        # Devolver el rectángulo transformado
+        return rectangle
+
+    def on_select_rectangle_button_clicked(self):
+        # Crear la herramienta de selección de rectángulo
+        self.rectangle_tool = RectangleMapTool(self.iface.mapCanvas())
+
+        # Conectar la señal rectangleSelected a una función que maneje el rectángulo seleccionado
+        self.rectangle_tool.rectangleSelected.connect(self.on_rectangle_selected)
+
+        # Activar la herramienta de selección de rectángulo
+        self.iface.mapCanvas().setMapTool(self.rectangle_tool)
+
+    def on_rectangle_selected(self, rectangle):
+        # Transformar el rectángulo de EPSG:25830 a EPSG:4326
+        rectangle = self.transform_rectangle(rectangle)
+
+        # Si ya existe una capa, eliminarla
+        if self.rectangle_layer is not None:
+            QgsProject.instance().removeMapLayer(self.rectangle_layer)
+
+        # Crear una capa en memoria para almacenar el rectángulo
+        layer = QgsVectorLayer('Polygon?crs=epsg:4326', 'selected_rectangle', 'memory')
+
+        # Crear un objeto QgsFeature y asignarle una geometría de polígono a partir del rectángulo
+        feature = QgsFeature()
+        feature.setGeometry(QgsGeometry.fromRect(rectangle))
+
+        # Añadir el objeto QgsFeature a la capa
+        layer.dataProvider().addFeatures([feature])
+
+        # Añadir la capa al mapa
+        QgsProject.instance().addMapLayer(layer)
+
+        # Almacenar la referencia a la capa
+        self.rectangle_layer = layer
+
+        # Hacer algo con las coordenadas (por ejemplo, imprimirlas en la consola)
+        self.on_polygon_button_clicked(layer=layer)
+
+        # Desactivar la herramienta de selección de rectángulo
+        self.iface.mapCanvas().unsetMapTool(self.rectangle_tool)
+
     def canvasClicked(self, point, button):
         source_crs = QgsCoordinateReferenceSystem("EPSG:25830")
         dest_crs = QgsCoordinateReferenceSystem("EPSG:4326")
