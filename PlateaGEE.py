@@ -28,7 +28,7 @@ from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication, QDate, QU
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction, QLineEdit, QMessageBox, QPushButton, QVBoxLayout
 
-import plotly.graph_objs as go
+# import plotly.graph_objs as go
 # from PyQt5.QtWebEngineWidgets import QWebEngineView
 # from PyQt5.QtWebKitWidgets import QWebView
 
@@ -39,6 +39,9 @@ from .PlateaGEE_dialog import PlateaGEEDialog
 import os.path
 import json
 import requests
+from datetime import datetime
+
+from .ee_utils import *
 
 from qgis.gui import QgsMapToolEmitPoint
 from qgis.PyQt.QtCore import pyqtSignal
@@ -52,6 +55,7 @@ from qgis.core import QgsVectorLayer, QgsFeature, QgsGeometry
 from matplotlib.dates import DateFormatter
 from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 
 class RectangleMapTool(QgsMapToolEmitPoint):
@@ -136,6 +140,8 @@ class PlateaGEE:
             self.plugin_dir,
             'i18n',
             'PlateaGEE_{}.qm'.format(locale))
+
+        self.creds = get_credentials("https://ryali93.users.earthengine.app/view/plateaapi") # "https://ryali93.users.earthengine.app/view/plateaapi"
 
         if os.path.exists(locale_path):
             self.translator = QTranslator()
@@ -325,7 +331,8 @@ class PlateaGEE:
         ndvi = [entry['NDVI'] for entry in data]
         ndmi = [entry['NDMI'] for entry in data]
 
-        date_form = DateFormatter(f"%m-%d")
+        time = [datetime.strptime(d, '%Y-%m-%d') for d in time]
+
 
         # Crear el gráfico con Matplotlib
         plt.rc('font', family='serif')
@@ -335,8 +342,10 @@ class PlateaGEE:
         ax.plot(time, ndmi, marker='o', label='NDMI')
         ax.set_title('NDVI y NDMI')
         ax.set_ylim([-0.2, 1])
-        ax.xaxis.set_major_formatter(date_form)
-        ax.set_xticklabels(ax.get_xticks(), rotation = 30)
+        # ax.xaxis.set_major_formatter(date_form)
+        # ax.set_xticklabels(ax.get_xticks(), rotation = 30)
+        ax.xaxis.set_major_formatter(mdates.DateFormatter('%m-%d'))
+        fig.autofmt_xdate()
         ax.legend()
         
         print("Plot created")
@@ -431,25 +440,29 @@ class PlateaGEE:
         lat_max = layer.extent().yMaximum()
         
         # Construir la URL para la solicitud GET
-        url = f'http://localhost:5000/get_ndvi_ndmi_polygon?lon_min={lon_min}&lat_min={lat_min}&lon_max={lon_max}&lat_max={lat_max}&start_date={start_date}&end_date={end_date}'
+        # url = f'http://localhost:5000/get_ndvi_ndmi_polygon?lon_min={lon_min}&lat_min={lat_min}&lon_max={lon_max}&lat_max={lat_max}&start_date={start_date}&end_date={end_date}'
 
-        # Hacer la solicitud GET y parsear la respuesta JSON
-        response = requests.get(url)
-        if response.status_code == 200:
-            data = json.loads(response.text)
-            # Muestra los resultados en un cuadro de mensaje
-            msg = QMessageBox()
-            msg.setWindowTitle("Resultados")
-            msg.setText(json.dumps(data, indent=2))
-            msg.exec_()
-        else:
-            # Muestra un mensaje de error si algo sale mal
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Critical)
-            msg.setWindowTitle("Error")
-            msg.setText(f"Error al obtener datos de la API: {response.status_code}")
-            msg.exec_()
-        
+        # # Hacer la solicitud GET y parsear la respuesta JSON
+        # response = requests.get(url)
+        # if response.status_code == 200:
+        #     data = json.loads(response.text)
+        #     # Muestra los resultados en un cuadro de mensaje
+        #     msg = QMessageBox()
+        #     msg.setWindowTitle("Resultados")
+        #     msg.setText(json.dumps(data, indent=2))
+        #     msg.exec_()
+        # else:
+        #     # Muestra un mensaje de error si algo sale mal
+        #     msg = QMessageBox()
+        #     msg.setIcon(QMessageBox.Critical)
+        #     msg.setWindowTitle("Error")
+        #     msg.setText(f"Error al obtener datos de la API: {response.status_code}")
+        #     msg.exec_()
+
+        expression = create_query_ndvi_ndmi(lon_min, lat_min, lon_max, lat_max, start_date, end_date)
+        data = get_data(self.creds, expression)
+        data = data_to_json(data)
+
         self.create_plot(data)
 
         # Ocultar campos de entrada y mostrar el gráfico
@@ -501,6 +514,9 @@ class PlateaGEE:
         # Crear una capa en memoria para almacenar el rectángulo
         layer = QgsVectorLayer('Polygon?crs=epsg:4326', 'selected_rectangle', 'memory')
 
+        # set transparency
+        layer.setOpacity(0.5)
+        
         # Crear un objeto QgsFeature y asignarle una geometría de polígono a partir del rectángulo
         feature = QgsFeature()
         feature.setGeometry(QgsGeometry.fromRect(rectangle))
