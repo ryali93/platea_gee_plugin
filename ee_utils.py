@@ -15,11 +15,39 @@ def get_credentials(url):
     creds = json.loads(match.group(0))
     return creds
 
-def create_query_ndvi_ndmi(lon_min, lat_min, lon_max, lat_max, start_date, end_date):
+def create_query_ndvi_ndmi_point(lon, lat, start_date, end_date):
+    # point
+    point = ee.Geometry.Point(lon, lat)
+
     # Cargar el conjunto de datos Sentinel-2
     sentinel2 = ee.ImageCollection('COPERNICUS/S2_SR') \
         .filterDate(start_date, end_date) \
-        .filterBounds(ee.Geometry.Rectangle([lon_min, lat_min, lon_max, lat_max]))
+        .filterBounds(ee.Geometry.Point(lon, lat))
+
+    # Calcular el NDVI y el NDMI
+    def calc_ndvi(image):
+        ndvi = image.normalizedDifference(['B8', 'B4']).rename('NDVI')
+        return image.addBands(ndvi)
+
+    def calc_ndmi(image):
+        ndmi = image.normalizedDifference(['B8', 'B11']).rename('NDMI')
+        return image.addBands(ndmi)
+
+    sentinel2_ndvi_ndmi = sentinel2.map(calc_ndvi).map(calc_ndmi)
+
+    # Extraer la serie de tiempo de NDVI y NDMI en el punto
+    series = sentinel2_ndvi_ndmi.getRegion(point, 10).getInfo()
+    
+    data = ee.String.encodeJSON(series)
+    return data.serialize()    
+
+def create_query_ndvi_ndmi_polygon(lon_min, lat_min, lon_max, lat_max, start_date, end_date):
+    # roi
+    roi = ee.Geometry.Rectangle([lon_min, lat_min, lon_max, lat_max])
+    # Cargar el conjunto de datos Sentinel-2
+    sentinel2 = ee.ImageCollection('COPERNICUS/S2_SR') \
+        .filterDate(start_date, end_date) \
+        .filterBounds(roi)
 
     # Calcular el NDVI y el NDMI
     def calc_ndvi(image):
@@ -32,7 +60,7 @@ def create_query_ndvi_ndmi(lon_min, lat_min, lon_max, lat_max, start_date, end_d
 
     # Calcular la media del NDVI y NDMI en la región
     def reduce_region(image):
-        mean = image.reduceRegion(reducer=ee.Reducer.mean(), geometry=ee.Geometry.Rectangle([lon_min, lat_min, lon_max, lat_max]), scale=10)
+        mean = image.reduceRegion(reducer=ee.Reducer.mean(), geometry=roi, scale=10)
         return image.set('NDVI', mean.get('NDVI')).set('NDMI', mean.get('NDMI'))
 
     sentinel2_ndvi_ndmi = sentinel2.map(calc_ndvi).map(calc_ndmi)
@@ -75,7 +103,7 @@ def create_query_flood(lon_min, lat_min, lon_max, lat_max, start_date, end_date)
         zvh_thd = -3
         pow_thd = 75
 
-        z_iwasc = calc_zscore(s1_collection_t1, s1_collection_t2, 'IW')
+        z_iwasc = calc_zscore(s1_collection_t1, s1_collection_t2)
         z = ee.ImageCollection.fromImages([z_iwasc]).sort('system:time_start')
         floods = mapFloods(z.mean(), zvv_thd, zvh_thd, pow_thd)
         return floods.clip(aoi)

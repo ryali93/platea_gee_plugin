@@ -1,13 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
+ <author>Universidad de Salamanca</author>
  <class>PlateaGEEDialogBase</class>
  <widget class="QDialog" name="PlateaGEEDialogBase">
   <property name="geometry">
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>400</width>
-    <height>414</height>
+    <width>591</width>
+    <height>644</height>
    </rect>
   </property>
   <property name="font">
@@ -16,116 +17,202 @@
    </font>
   </property>
   <property name="windowTitle">
-   <string>Información satelital</string>
+   <string>Generación de información satelital</string>
   </property>
   <property name="windowIcon">
-   <iconset>
-    <normaloff>:/plugins/plateagee/icons/satellite.svg</normaloff>:/plugins/plateagee/icons/satellite.svg</iconset>
+   <iconset resource="../resources.qrc">
+    <normaloff>:/plugins/plateagee/icons/satellite.png</normaloff>:/plugins/plateagee/icons/satellite.png</iconset>
   </property>
-  <layout class="QVBoxLayout" name="verticalLayout">
-    <item>
-      <widget class="QLabel" name="lon_label">
-        <property name="text">
-          <string>Longitud:</string>
-        </property>
-      </widget>
-    </item>
-    <item>
-      <widget class="QLineEdit" name="lon_input"/>
-    </item>
-    <item>
-      <widget class="QLabel" name="lat_label">
-        <property name="text">
-          <string>Latitud:</string>
-        </property>
-      </widget>
-    </item>
-    <item>
-      <widget class="QLineEdit" name="lat_input"/>
-    </item>
-    <item>
-      <widget class="QLabel" name="start_date_label">
-        <property name="text">
-          <string>Fecha inicio:</string>
-        </property>
-      </widget>
-    </item>
-    <item>
-      <widget class="QDateEdit" name="start_date_edit"/>
-    </item>
-    <item>
-      <widget class="QLabel" name="end_date_label">
-        <property name="text">
-          <string>Fecha fin:</string>
-        </property>
-      </widget>
-    </item>
-    <item>
-      <widget class="QDateEdit" name="end_date_edit"/>
-    </item>
-    <item>
-      <widget class="QPushButton" name="ok_button">
-        <property name="text">
-          <string>OK</string>
-        </property>
-      </widget>
-    </item>
-    <item>
-      <widget class="QPushButton" name="back_button">
-        <property name="text">
-          <string>Regresar</string>
-        </property>
-      </widget>
-    </item>
-    <item>
-      <widget class="QPushButton" name="select_point_button">
-        <property name="text">
-          <string>Punto</string>
-        </property>
-      </widget>
-    </item>
-    <item>
-      <widget class="QPushButton" name="select_rectangle_button">
-        <property name="geometry">
-          <rect>
-            <x>310</x>
-            <y>240</y>
-            <width>30</width>
-            <height>30</height>
-          </rect>
-        </property>
-        <property name="text">
-          <string>Rectangulo</string>
-        </property>
-      </widget>
-    </item>
+  <layout class="QGridLayout" name="gridLayout_g1">
 
+    <item row="0" column="0">
+      <layout class="QVBoxLayout" name="verticalLayout">
 
-    <item>
-        <widget class="QWidget" name="plot_widget">
-            <property name="geometry">
-                <rect>
-                    <x>20</x>
-                    <y>20</y>
-                    <width>360</width>
-                    <height>200</height>
-                </rect>
+        <!-- Supergroup 1 -->
+
+        <item>
+          <widget class="QgsCollapsibleGroupBox" name="mGroupBox">
+            <property name="font">
+              <font>
+                <pointsize>12</pointsize>
+                <weight>75</weight>
+                <bold>true</bold>
+              </font>
             </property>
-        </widget>
-    </item>
+            <property name="title">
+              <string>Análisis de series</string>
+            </property>
+            <layout class="QGridLayout" name="gridLayout">
 
-    <item>
-      <spacer name="verticalSpacer">
-        <property name="orientation">
-          <enum>Qt::Vertical</enum>
-        </property>
-        <property name="sizeHint" stdset="0">
-          <size>
-            <width>10</width>
-            <height>1</height>
-          </size>
-        </property>
-      </spacer>
+              <!-- Group 1: Select init and last date -->
+              <item row="0" column="0">
+                <layout class="QHBoxLayout" name="horizontalLayout" stretch="0,10,0,10">
+                  <item>
+                    <widget class="QLabel" name="start_date_label">
+                      <property name="text">
+                        <string>Fecha inicio:</string>
+                      </property>
+                    </widget>
+                  </item>
+                  <item>
+                    <widget class="QDateEdit" name="start_date_edit"/>
+                  </item>
+                  <item>
+                    <widget class="QLabel" name="end_date_label">
+                      <property name="text">
+                        <string>Fecha fin:</string>
+                      </property>
+                    </widget>
+                  </item>
+                  <item>
+                    <widget class="QDateEdit" name="end_date_edit"/>
+                  </item>
+                </layout>
+              </item>
+            
+              <!-- Group 1: Get coordinates -->
+              <item row="1" column="0">
+                <layout class="QHBoxLayout" name="horizontalLayout_1" stretch="0,10,0,10,0,0">
+                  <item>
+                    <widget class="QLabel" name="lon_label">
+                      <property name="text">
+                        <string>Longitud:</string>
+                      </property>
+                    </widget>
+                  </item>
+                  <item>
+                    <widget class="QLineEdit" name="lon_input"/>
+                  </item>
+                  <item>
+                    <widget class="QLabel" name="lat_label">
+                      <property name="text">
+                        <string>Latitud:</string>
+                      </property>
+                    </widget>
+                  </item>
+                  <item>
+                    <widget class="QLineEdit" name="lat_input"/>
+                  </item>
+                  <item>
+                    <widget class="QPushButton" name="select_point_button">
+                      <property name="text">
+                        <string>Punto</string>
+                      </property>
+                    </widget>
+                  </item>
+                  <item>
+                    <widget class="QPushButton" name="ok_button">
+                      <property name="text">
+                        <string>OK</string>
+                      </property>
+                    </widget>
+                  </item>
+                </layout>
+              </item>
+
+              <!-- Group 3: Select area as rectangle -->
+              <item row="2" column="0">
+                <layout class="QHBoxLayout" name="horizontalLayout_2" stretch="0">
+                  <item>
+                    <widget class="QPushButton" name="select_rectangle_series_button">
+                      <property name="text">
+                        <string>Seleccionar área</string>
+                      </property>
+                    </widget>
+                  </item>
+                </layout>
+              </item>
+
+            </layout>
+          </widget>
+        </item>
+
+        <!-- Supergroup 2 -->
+        
+        <item>
+          <widget class="QgsCollapsibleGroupBox" name="mGroupBox_1">
+            <property name="font">
+              <font>
+                <pointsize>12</pointsize>
+                <weight>75</weight>
+                <bold>true</bold>
+              </font>
+            </property>
+            <property name="title">
+              <string>Análisis inundaciones</string>
+            </property>
+            <layout class="QGridLayout" name="gridLayout_1">
+              <!-- Group 1: Select area as rectangle -->
+              <item row="0" column="0">
+                <layout class="QHBoxLayout" name="horizontalLayout_4" stretch="0">
+                  <item>
+                    <widget class="QPushButton" name="select_rectangle_flood_button">
+                      <property name="text">
+                        <string>Seleccionar área (inundación)</string>
+                      </property>
+                    </widget>
+                  </item>
+                </layout>
+              </item>
+            </layout>
+          </widget>
+        </item>
+        
+        <!-- Supergroup 3 -->
+
+        <item>
+          <widget class="QgsCollapsibleGroupBox" name="mGroupBox_2">
+            <property name="font">
+              <font>
+                <pointsize>12</pointsize>
+                <weight>75</weight>
+                <bold>true</bold>
+              </font>
+            </property>
+            <property name="title">
+              <string>Imágenes Planet</string>
+            </property>
+            <layout class="QGridLayout" name="gridLayout_2">
+            </layout>
+          </widget>
+        </item>
+
+        <item>
+          <widget class="QPushButton" name="back_button">
+            <property name="text">
+              <string>Regresar</string>
+            </property>
+          </widget>
+        </item>
+
+        <item>
+            <widget class="QWidget" name="plot_widget">
+                <property name="geometry">
+                    <rect>
+                        <x>20</x>
+                        <y>20</y>
+                        <width>360</width>
+                        <height>200</height>
+                    </rect>
+                </property>
+            </widget>
+        </item>
+
+        <item>
+          <spacer name="verticalSpacer">
+            <property name="orientation">
+              <enum>Qt::Vertical</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+              <size>
+                <width>10</width>
+                <height>1</height>
+              </size>
+            </property>
+          </spacer>
+        </item>
+
+      </layout>
     </item>
   </layout>
  </widget>

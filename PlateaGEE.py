@@ -40,6 +40,7 @@ import os.path
 import json
 import requests
 from datetime import datetime
+import tempfile
 
 from .ee_utils import *
 
@@ -157,7 +158,8 @@ class PlateaGEE:
         self.first_start = None
 
         # Define a rectangle layer to be used for the selection
-        self.rectangle_layer = None
+        self.rectangle_layer_serie = None
+        self.rectangle_layer_flood = None
 
     # noinspection PyMethodMayBeStatic
     def tr(self, message):
@@ -268,7 +270,7 @@ class PlateaGEE:
 
         # Establecer la fecha de inicio y fin
         current_date = QDate.currentDate()
-        start_date = current_date.addDays(-10)
+        start_date = current_date.addDays(-30)
         self.dockwidget.end_date_edit.setDate(current_date)
         self.dockwidget.start_date_edit.setDate(start_date)
 
@@ -285,7 +287,11 @@ class PlateaGEE:
         self.dockwidget.select_point_button.clicked.connect(self.on_select_point_button_clicked)
 
         # Conectar la señal clicked del botón con el método on_select_rectangle_button_clicked
-        self.dockwidget.select_rectangle_button.clicked.connect(self.on_select_rectangle_button_clicked)
+        self.dockwidget.select_rectangle_series_button.clicked.connect(self.on_select_rectangle_series_button_clicked)
+
+        # Conectar la señal clicked del botón con el método 
+        self.dockwidget.select_rectangle_flood_button.clicked.connect(self.on_select_rectangle_flood_button_clicked)
+        
 
     def unload(self):
         """Removes the plugin menu item and icon from QGIS GUI."""
@@ -332,22 +338,24 @@ class PlateaGEE:
         ndmi = [entry['NDMI'] for entry in data]
 
         time = [datetime.strptime(d, '%Y-%m-%d') for d in time]
-
+        
+        ranges = [(-0.2, 0), (0, 0.2), (0.2, 0.5), (0.5, 1)]
+        colors = ['#a50026', '#f46d43', '#ffffbf', '#1a9850']
 
         # Crear el gráfico con Matplotlib
         plt.rc('font', family='serif')
-        fig = Figure(figsize=(5, 4), dpi=100)
-        ax = fig.add_subplot(111)
+        fig, ax = plt.subplots()  # Crear la figura y los ejes aquí
         ax.plot(time, ndvi, marker='o', label='NDVI')
         ax.plot(time, ndmi, marker='o', label='NDMI')
         ax.set_title('NDVI y NDMI')
         ax.set_ylim([-0.2, 1])
-        # ax.xaxis.set_major_formatter(date_form)
-        # ax.set_xticklabels(ax.get_xticks(), rotation = 30)
-        ax.xaxis.set_major_formatter(mdates.DateFormatter('%m-%d'))
-        fig.autofmt_xdate()
-        ax.legend()
-        
+        for color, range in zip(colors, ranges):
+            ax.fill_between(time, range[0], range[1], facecolor=color, alpha=0.3)
+        ax.xaxis.set_major_locator(mdates.AutoDateLocator())  # Usa AutoDateLocator para manejar automáticamente los ticks
+        ax.xaxis.set_major_formatter(mdates.DateFormatter('%m-%d'))  # Formatea los ticks como deseas
+        fig.autofmt_xdate()  # Hace que los ticks en el eje x sean más legibles
+        ax.legend()  # Añade una leyenda
+        ax.grid()  # Añade una cuadrícula
         print("Plot created")
 
         # Crear un FigureCanvasQTAgg para mostrar el gráfico de Matplotlib en el plugin
@@ -364,7 +372,30 @@ class PlateaGEE:
         # Crea un nuevo layout y añade el gráfico
         layout.addWidget(plot_canvas)
         print("Plot added to layout")
+    
 
+    def loadKml(self, url):
+        # Realizar la petición GET para descargar el archivo
+        response = requests.get(url)
+
+        # Comprobar que la petición ha sido exitosa
+        if response.status_code == 200:
+            # Crear un archivo temporal para guardar los datos
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.kml') as tmpfile:
+                # Guardar los datos en el archivo
+                tmpfile.write(response.content)
+
+                # Crear una nueva capa vectorial a partir del archivo kml descargado
+                vlayer = QgsVectorLayer(tmpfile.name, "flood_vector", "ogr")
+
+                if not vlayer.isValid():
+                    print("Capa falló al cargar!")
+                else:
+                    # Añadir esta capa al mapa
+                    QgsProject.instance().addMapLayer(vlayer)
+        else:
+            print("La descarga del archivo KML falló!")
+    
 
     def on_ok_button_clicked(self):
         # Leemos las coordenadas y fechas desde los campos en el formulario
@@ -381,25 +412,9 @@ class PlateaGEE:
         lon = float(lon_text)
         lat = float(lat_text)
 
-        # URL de la API (reemplaza con la dirección de tu API)
-        url = f"http://localhost:5000/get_ndvi_ndmi_series?lon={lon}&lat={lat}&start_date={start_date}&end_date={end_date}"
-
-        # Enviamos la solicitud a la API y obtenemos la respuesta
-        response = requests.get(url)
-        if response.status_code == 200:
-            data = json.loads(response.text)
-            # Muestra los resultados en un cuadro de mensaje
-            msg = QMessageBox()
-            msg.setWindowTitle("Resultados")
-            msg.setText(json.dumps(data, indent=2))
-            msg.exec_()
-        else:
-            # Muestra un mensaje de error si algo sale mal
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Critical)
-            msg.setWindowTitle("Error")
-            msg.setText(f"Error al obtener datos de la API: {response.status_code}")
-            msg.exec_()
+        expression_index = create_query_ndvi_ndmi_point(lon, lat, start_date, end_date)
+        data = get_data(self.creds, expression_index)
+        data = data_to_json(data)
         
         self.create_plot(data)
 
@@ -412,7 +427,6 @@ class PlateaGEE:
         self.dockwidget.lat_input.hide()
         self.dockwidget.start_date_edit.hide()
         self.dockwidget.end_date_edit.hide()
-        self.dockwidget.ok_button.hide()
         self.dockwidget.plot_widget.show()
         self.dockwidget.back_button.show()
     
@@ -426,9 +440,24 @@ class PlateaGEE:
         self.dockwidget.lat_input.show()
         self.dockwidget.start_date_edit.show()
         self.dockwidget.end_date_edit.show()
-        self.dockwidget.ok_button.show()
     
-    def on_polygon_button_clicked(self, layer):
+    def on_polygon_flood_button_clicked(self, layer):
+        # Obtener la capa temporal
+        start_date = self.dockwidget.start_date_edit.date().toString("yyyy-MM-dd")
+        end_date = self.dockwidget.end_date_edit.date().toString("yyyy-MM-dd")
+
+        # Extraer las coordenadas del rectángulo
+        lon_min = layer.extent().xMinimum()
+        lat_min = layer.extent().yMinimum()
+        lon_max = layer.extent().xMaximum()
+        lat_max = layer.extent().yMaximum()
+
+        url = create_query_flood(lon_min, lat_min, lon_max, lat_max, start_date, end_date)
+        print(url)
+
+        self.loadKml(url)
+
+    def on_polygon_serie_button_clicked(self, layer):
         # Obtener la capa temporal
         start_date = self.dockwidget.start_date_edit.date().toString("yyyy-MM-dd")
         end_date = self.dockwidget.end_date_edit.date().toString("yyyy-MM-dd")
@@ -439,28 +468,8 @@ class PlateaGEE:
         lon_max = layer.extent().xMaximum()
         lat_max = layer.extent().yMaximum()
         
-        # Construir la URL para la solicitud GET
-        # url = f'http://localhost:5000/get_ndvi_ndmi_polygon?lon_min={lon_min}&lat_min={lat_min}&lon_max={lon_max}&lat_max={lat_max}&start_date={start_date}&end_date={end_date}'
-
-        # # Hacer la solicitud GET y parsear la respuesta JSON
-        # response = requests.get(url)
-        # if response.status_code == 200:
-        #     data = json.loads(response.text)
-        #     # Muestra los resultados en un cuadro de mensaje
-        #     msg = QMessageBox()
-        #     msg.setWindowTitle("Resultados")
-        #     msg.setText(json.dumps(data, indent=2))
-        #     msg.exec_()
-        # else:
-        #     # Muestra un mensaje de error si algo sale mal
-        #     msg = QMessageBox()
-        #     msg.setIcon(QMessageBox.Critical)
-        #     msg.setWindowTitle("Error")
-        #     msg.setText(f"Error al obtener datos de la API: {response.status_code}")
-        #     msg.exec_()
-
-        expression = create_query_ndvi_ndmi(lon_min, lat_min, lon_max, lat_max, start_date, end_date)
-        data = get_data(self.creds, expression)
+        expression_index = create_query_ndvi_ndmi_polygon(lon_min, lat_min, lon_max, lat_max, start_date, end_date)
+        data = get_data(self.creds, expression_index)
         data = data_to_json(data)
 
         self.create_plot(data)
@@ -474,7 +483,6 @@ class PlateaGEE:
         self.dockwidget.lat_input.hide()
         self.dockwidget.start_date_edit.hide()
         self.dockwidget.end_date_edit.hide()
-        self.dockwidget.ok_button.hide()
         self.dockwidget.plot_widget.show()
         self.dockwidget.back_button.show()
     
@@ -493,26 +501,40 @@ class PlateaGEE:
         # Devolver el rectángulo transformado
         return rectangle
 
-    def on_select_rectangle_button_clicked(self):
-        # Crear la herramienta de selección de rectángulo
+    def on_rectangle_flood_selected(self, rectangle):
+        rectangle = self.transform_rectangle(rectangle)
+        if self.rectangle_layer_flood is not None:
+            QgsProject.instance().removeMapLayer(self.rectangle_layer_flood)
+        layer = QgsVectorLayer('Polygon?crs=epsg:4326', 'selected_area_flood', 'memory')
+        layer.setOpacity(0.5)
+        feature = QgsFeature()
+        feature.setGeometry(QgsGeometry.fromRect(rectangle))
+        layer.dataProvider().addFeatures([feature])
+        QgsProject.instance().addMapLayer(layer)
+        self.rectangle_layer_flood = layer
+        self.on_polygon_flood_button_clicked(layer=layer)
+        self.iface.mapCanvas().unsetMapTool(self.rectangle_tool)
+
+    def on_select_rectangle_flood_button_clicked(self):
         self.rectangle_tool = RectangleMapTool(self.iface.mapCanvas())
-
-        # Conectar la señal rectangleSelected a una función que maneje el rectángulo seleccionado
-        self.rectangle_tool.rectangleSelected.connect(self.on_rectangle_selected)
-
-        # Activar la herramienta de selección de rectángulo
+        self.rectangle_tool.rectangleSelected.connect(self.on_rectangle_flood_selected)
         self.iface.mapCanvas().setMapTool(self.rectangle_tool)
 
-    def on_rectangle_selected(self, rectangle):
+    def on_select_rectangle_series_button_clicked(self):
+        self.rectangle_tool = RectangleMapTool(self.iface.mapCanvas()) # Crear la herramienta de selección de rectángulo
+        self.rectangle_tool.rectangleSelected.connect(self.on_rectangle_series_selected) # Conectar la señal rectangleSelected a una función que maneje el rectángulo seleccionado
+        self.iface.mapCanvas().setMapTool(self.rectangle_tool) # Activar la herramienta de selección de rectángulo
+
+    def on_rectangle_series_selected(self, rectangle):
         # Transformar el rectángulo de EPSG:25830 a EPSG:4326
         rectangle = self.transform_rectangle(rectangle)
 
         # Si ya existe una capa, eliminarla
-        if self.rectangle_layer is not None:
-            QgsProject.instance().removeMapLayer(self.rectangle_layer)
+        if self.rectangle_layer_flood is not None:
+            QgsProject.instance().removeMapLayer(self.rectangle_layer_flood)
 
         # Crear una capa en memoria para almacenar el rectángulo
-        layer = QgsVectorLayer('Polygon?crs=epsg:4326', 'selected_rectangle', 'memory')
+        layer = QgsVectorLayer('Polygon?crs=epsg:4326', 'selected_area_serie', 'memory')
 
         # set transparency
         layer.setOpacity(0.5)
@@ -528,10 +550,10 @@ class PlateaGEE:
         QgsProject.instance().addMapLayer(layer)
 
         # Almacenar la referencia a la capa
-        self.rectangle_layer = layer
+        self.rectangle_layer_flood = layer
 
         # Hacer algo con las coordenadas (por ejemplo, imprimirlas en la consola)
-        self.on_polygon_button_clicked(layer=layer)
+        self.on_polygon_serie_button_clicked(layer=layer)
 
         # Desactivar la herramienta de selección de rectángulo
         self.iface.mapCanvas().unsetMapTool(self.rectangle_tool)
