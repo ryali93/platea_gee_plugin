@@ -159,7 +159,6 @@
         </item>
         
         <!-- Supergroup 3 -->
-
         <item>
           <widget class="QgsCollapsibleGroupBox" name="mGroupBox_2">
             <property name="font">
@@ -173,6 +172,31 @@
               <string>Imágenes Planet</string>
             </property>
             <layout class="QGridLayout" name="gridLayout_2">
+              <item row="0" column="0">
+                <layout class="QHBoxLayout" name="horizontalLayout" stretch="0,10,0">
+                  
+                  <item>
+                    <widget class="QLabel" name="date_label_planet">
+                      <property name="text">
+                        <string>Seleccionar mes:</string>
+                      </property>
+                    </widget>
+                  </item>
+
+                  <item>
+                    <widget class="QDateEdit" name="date_edit_planet"/>
+                  </item>
+
+                  <item>
+                    <widget class="QPushButton" name="planetwmts_button">
+                      <property name="text">
+                        <string>Agregar basemap</string>
+                      </property>
+                    </widget>
+                  </item>
+
+                </layout>
+              </item>
             </layout>
           </widget>
         </item>

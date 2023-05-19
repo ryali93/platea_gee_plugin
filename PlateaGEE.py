@@ -23,7 +23,7 @@
 """
 # from PyQt5 import QtWebEngineWidgets  # Esto debe estar al principio
 from qgis.gui import QgsMapToolEmitPoint
-from qgis.core import QgsCoordinateTransform, QgsCoordinateReferenceSystem, QgsProject
+from qgis.core import QgsCoordinateTransform, QgsCoordinateReferenceSystem, QgsProject, QgsRasterLayer
 from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication, QDate, QUrl
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction, QLineEdit, QMessageBox, QPushButton, QVBoxLayout
@@ -274,10 +274,14 @@ class PlateaGEE:
         self.dockwidget.end_date_edit.setDate(current_date)
         self.dockwidget.start_date_edit.setDate(start_date)
 
+        # Establecer fecha de inicio Planet
+        self.dockwidget.date_edit_planet.setDate(start_date)
+
          # Establecer el formato de visualización de las fechas
         date_display_format = "dd/MM/yyyy"
         self.dockwidget.start_date_edit.setDisplayFormat(date_display_format)
         self.dockwidget.end_date_edit.setDisplayFormat(date_display_format)
+        self.dockwidget.date_edit_planet.setDisplayFormat(date_display_format)
 
         # Conectar la señal accepted del button_box con el método on_button_box_accepted
         self.dockwidget.ok_button.clicked.connect(self.on_ok_button_clicked)
@@ -291,7 +295,26 @@ class PlateaGEE:
 
         # Conectar la señal clicked del botón con el método 
         self.dockwidget.select_rectangle_flood_button.clicked.connect(self.on_select_rectangle_flood_button_clicked)
-        
+
+        # Conectar la señal clicked del botón con el método 
+        self.dockwidget.planetwmts_button.clicked.connect(self.on_planetwmts_button_clicked)
+    
+    def on_planetwmts_button_clicked(self):
+        date_planet = self.dockwidget.date_edit_planet.date().toString("yyyy_MM")
+        api_key = "PLAKabb0ed6e8a964c6591391d8e8bfa0980"
+        # URI para el servicio WMTS
+        uri = "type=xyz&url=https://tiles.planet.com/basemaps/v1/planet-tiles/global_monthly_" + date_planet + "_mosaic/gmap/{z}/{x}/{y}.png?api_key=" + api_key + "&ua=qgis-3.22.16-Białowieża;planet-explorer2.3.0&zmin=0&zmax=22"
+        print(uri)
+
+        # Crea la capa XYZ
+        rlayer = QgsRasterLayer(uri, "Global Monthly " + date_planet, "wms")
+
+        # Verifica que la capa es válida
+        if not rlayer.isValid():
+            print("Capa falló al cargar!")
+        else:
+            # Agrega la capa al mapa
+            QgsProject.instance().addMapLayer(rlayer)
 
     def unload(self):
         """Removes the plugin menu item and icon from QGIS GUI."""
@@ -300,27 +323,6 @@ class PlateaGEE:
                 self.tr(u'&PlateaGEE'),
                 action)
             self.iface.removeToolBarIcon(action)
-
-    # def create_plot(self, data):
-    #         # Extraer las listas de tiempo, NDVI y NDMI
-    #         time = [entry['time'] for entry in data]
-    #         ndvi = [entry['NDVI'] for entry in data]
-    #         ndmi = [entry['NDMI'] for entry in data]
-
-    #         # Crear el gráfico con Plotly
-    #         fig = go.Figure()
-    #         fig.add_trace(go.Scatter(x=time, y=ndvi, mode='lines+markers', name='NDVI'))
-    #         fig.add_trace(go.Scatter(x=time, y=ndmi, mode='lines+markers', name='NDMI'))
-    #         fig.update_layout(title='NDVI y NDMI a lo largo del tiempo')
-
-    #         # Convertir el gráfico de Plotly en una página HTML
-    #         plot_html = fig.to_html(full_html=False)
-
-    #         # Crear un QWebView para mostrar el gráfico de Plotly en el plugin
-    #         plot_view = QWebView(self.dockwidget.plot_widget)
-    #         plot_view.setHtml(plot_html)
-    #         plot_view.setGeometry(0, 0, self.dockwidget.plot_widget.geometry().width(), self.dockwidget.plot_widget.geometry().height())
-    #         plot_view.show()
 
     def clear_layout(self, layout):
         """ Elimina todos los widgets del layout dado. """
