@@ -21,7 +21,7 @@
   </property>
   <property name="windowIcon">
    <iconset resource="../resources.qrc">
-    <normaloff>:/plugins/plateagee/icons/satellite.png</normaloff>:/plugins/plateagee/icons/satellite.png</iconset>
+    <normaloff>:/plugins/plateagee/icons/satellite_64.png</normaloff>:/plugins/plateagee/icons/satellite_64.png</iconset>
   </property>
   <layout class="QGridLayout" name="gridLayout_g1">
 

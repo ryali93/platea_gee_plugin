@@ -78,14 +78,14 @@ def create_query_flood(lon_min, lat_min, lon_max, lat_max, start_date, end_date)
 
     # Define a default start date (preflood | during flood)
     start_date = [ee.Date(start_date), ee.Date(end_date)]
-    advance_days = [60, 8]
+    advance_days = [40, 20]
 
     # Define a function to smoothen the raster and export the shapefile
     def getFloodShpUrl(floodLayer, value, radius, aoi, cellSize):
         # Define a boxcar or low-pass kernel.
         boxcar = ee.Kernel.square(radius, 'pixels', True)
         smooth_flood = floodLayer.eq(value).convolve(boxcar)
-        smooth_flood_binary = smooth_flood.updateMask(smooth_flood.gt(0.5)).gt(0)
+        smooth_flood_binary = smooth_flood.updateMask(smooth_flood.gt(0.1)).gt(0)
         vectors = smooth_flood_binary.reduceToVectors(
             geometry=aoi,
             crs=floodLayer.projection(),
@@ -99,9 +99,9 @@ def create_query_flood(lon_min, lat_min, lon_max, lat_max, start_date, end_date)
         return flood_vector
 
     def getFloodImage(s1_collection_t1, s1_collection_t2):
-        zvv_thd = -3
-        zvh_thd = -3
-        pow_thd = 75
+        zvv_thd = -2
+        zvh_thd = -2
+        pow_thd = 55
 
         z_iwasc = calc_zscore(s1_collection_t1, s1_collection_t2)
         z = ee.ImageCollection.fromImages([z_iwasc]).sort('system:time_start')
@@ -174,7 +174,7 @@ def create_query_flood(lon_min, lat_min, lon_max, lat_max, start_date, end_date)
         return anom.divide(basesd) \
             .set({'system:time_start': anom.get('system:time_start')})
 
-    def mapFloods(z, zvv_thd=-3, zvh_thd=-3, pow_thd=75, elev_thd=800, slp_thd=15):
+    def mapFloods(z, zvv_thd=-3, zvh_thd=-3, pow_thd=55, elev_thd=1400, slp_thd=15):
         # JRC water mask
         jrc = ee.ImageCollection("JRC/GSW1_1/MonthlyHistory").filterDate('2016-01-01', '2019-01-01')
         jrcvalid = jrc.map(lambda x: x.gt(0)).sum()
