@@ -24,101 +24,21 @@
 # from PyQt5 import QtWebEngineWidgets  # Esto debe estar al principio
 from qgis.gui import QgsMapToolEmitPoint
 from qgis.core import QgsCoordinateTransform, QgsCoordinateReferenceSystem, QgsProject, QgsRasterLayer
-from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication, QDate, QUrl
-from qgis.PyQt.QtGui import QIcon
-from qgis.PyQt.QtWidgets import QAction, QLineEdit, QMessageBox, QPushButton, QVBoxLayout
-
-# import plotly.graph_objs as go
-# from PyQt5.QtWebEngineWidgets import QWebEngineView
-# from PyQt5.QtWebKitWidgets import QWebView
-
-# Initialize Qt resources from file resources.py
-from .resources import *
-# Import the code for the dialog
-from .PlateaGEE_dialog import PlateaGEEDialog
-import os.path
-import json
-import requests
-from datetime import datetime
-import tempfile
-
-from .ee_utils import *
-
-from qgis.gui import QgsMapToolEmitPoint
-from qgis.PyQt.QtCore import pyqtSignal
-from qgis.core import QgsRectangle
-from qgis.gui import QgsRubberBand
-from qgis.core import QgsWkbTypes
-from qgis.PyQt.QtGui import QColor
-from qgis.core import QgsPointXY
 from qgis.core import QgsVectorLayer, QgsFeature, QgsGeometry
+from qgis.PyQt.QtGui import QIcon
+from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication, QDate
+from qgis.PyQt.QtWidgets import QAction, QLineEdit, QMessageBox, QVBoxLayout
 
-from matplotlib.dates import DateFormatter
-from matplotlib.figure import Figure
-import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
+import requests
+import tempfile
+import os.path
+
+from .resources import *
+from .PlateaGEE_dialog import PlateaGEEDialog
+from .ee_utils import *
+from .utils import *
+
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-
-class RectangleMapTool(QgsMapToolEmitPoint):
-    rectangleSelected = pyqtSignal(QgsRectangle)
-
-    def __init__(self, canvas):
-        self.canvas = canvas
-        QgsMapToolEmitPoint.__init__(self, self.canvas)
-        self.rubberBand = QgsRubberBand(self.canvas, QgsWkbTypes.PolygonGeometry)
-        self.rubberBand.setColor(QColor(255, 0, 0, 100))
-        self.rubberBand.setWidth(1)
-        self.reset()
-
-    def reset(self):
-        self.startPoint = self.endPoint = None
-        self.isEmittingPoint = False
-        self.rubberBand.reset(QgsWkbTypes.PolygonGeometry)
-
-    def canvasPressEvent(self, e):
-        self.startPoint = self.toMapCoordinates(e.pos())
-        self.endPoint = self.startPoint
-        self.isEmittingPoint = True
-        self.showRect(self.startPoint, self.endPoint)
-
-    def canvasReleaseEvent(self, e):
-        self.isEmittingPoint = False
-        r = self.rectangle()
-        if r is not None:
-            self.rectangleSelected.emit(r)
-        self.reset()
-
-    def canvasMoveEvent(self, e):
-        if not self.isEmittingPoint:
-            return
-
-        self.endPoint = self.toMapCoordinates(e.pos())
-        self.showRect(self.startPoint, self.endPoint)
-
-    def showRect(self, startPoint, endPoint):
-        self.rubberBand.reset(QgsWkbTypes.PolygonGeometry)
-        if startPoint.x() == endPoint.x() or startPoint.y() == endPoint.y():
-            return
-
-        point1 = QgsPointXY(startPoint.x(), startPoint.y())
-        point2 = QgsPointXY(startPoint.x(), endPoint.y())
-        point3 = QgsPointXY(endPoint.x(), endPoint.y())
-        point4 = QgsPointXY(endPoint.x(), startPoint.y())
-
-        self.rubberBand.addPoint(point1, False)
-        self.rubberBand.addPoint(point2, False)
-        self.rubberBand.addPoint(point3, False)
-        self.rubberBand.addPoint(point4, True)
-        self.rubberBand.show()
-
-    def rectangle(self):
-        if self.startPoint is None or self.endPoint is None:
-            return None
-        elif self.startPoint.x() == self.endPoint.x() or self.startPoint.y() == self.endPoint.y():
-            return None
-
-        return QgsRectangle(self.startPoint, self.endPoint)
-
 
 class PlateaGEE:
     """QGIS Plugin Implementation."""
@@ -254,7 +174,7 @@ class PlateaGEE:
     def initGui(self):
         """Create the menu entries and toolbar icons inside the QGIS GUI."""
 
-        icon_path = ':/plugins/PlateaGEE/icon.png'
+        icon_path = ':/plugins/PlateaGEE/icons/satellite_64.png'
         self.add_action(
             icon_path,
             text=self.tr(u'PlateaGEE'),
@@ -262,58 +182,58 @@ class PlateaGEE:
             parent=self.iface.mainWindow())
 
         self.dockwidget = PlateaGEEDialog()
-        # Conectar los campos de entrada con los atributos de la instancia del complemento
+        # Connect the input fields with the attributes of the plugin instance
         self.dockwidget.lon_input = self.dockwidget.findChild(QLineEdit, 'lon_input')
         self.dockwidget.lat_input = self.dockwidget.findChild(QLineEdit, 'lat_input')
         self.dockwidget.start_date_input = self.dockwidget.findChild(QLineEdit, 'start_date_input')
         self.dockwidget.end_date_input = self.dockwidget.findChild(QLineEdit, 'end_date_input')
 
-        # Establecer la fecha de inicio y fin
+        # Set the current date and end date
         current_date = QDate.currentDate()
         start_date = current_date.addDays(-30)
-        self.dockwidget.end_date_edit.setDate(current_date)
-        self.dockwidget.start_date_edit.setDate(start_date)
+        self.dockwidget.end_date_edit_series.setDate(current_date)
+        self.dockwidget.start_date_edit_series.setDate(start_date)
 
-        # Establecer fecha de inicio Planet
+        self.dockwidget.end_date_edit_flood.setDate(current_date)
+        self.dockwidget.start_date_edit_flood.setDate(start_date)
+
+        # Set the current date for the Planet imagery
         self.dockwidget.date_edit_planet.setDate(start_date)
 
-         # Establecer el formato de visualización de las fechas
+        # Set the date display format
         date_display_format = "dd/MM/yyyy"
-        self.dockwidget.start_date_edit.setDisplayFormat(date_display_format)
-        self.dockwidget.end_date_edit.setDisplayFormat(date_display_format)
-        self.dockwidget.date_edit_planet.setDisplayFormat(date_display_format)
+        self.dockwidget.start_date_edit_series.setDisplayFormat(date_display_format) # series
+        self.dockwidget.end_date_edit_series.setDisplayFormat(date_display_format) # series
 
-        # Conectar la señal accepted del button_box con el método on_button_box_accepted
+        self.dockwidget.end_date_edit_flood.setDisplayFormat(date_display_format) # flood
+        self.dockwidget.start_date_edit_flood.setDisplayFormat(date_display_format) # flood
+
+        self.dockwidget.date_edit_planet.setDisplayFormat(date_display_format) # planet
+
+        # Connect the accepted signal of the button_box with the on_button_box_accepted method
         self.dockwidget.ok_button.clicked.connect(self.on_ok_button_clicked)
-        self.dockwidget.back_button.clicked.connect(self.on_back_button_clicked)
 
-        # Conectar la señal clicked del botón con el método on_select_point_button_clicked
+        # Connect the clicked signal of the button with the on_select_point_button_clicked method
         self.dockwidget.select_point_button.clicked.connect(self.on_select_point_button_clicked)
 
-        # Conectar la señal clicked del botón con el método on_select_rectangle_button_clicked
+        # Connect the rectangle series button with the on_select_rectangle_series_button_clicked method
         self.dockwidget.select_rectangle_series_button.clicked.connect(self.on_select_rectangle_series_button_clicked)
 
-        # Conectar la señal clicked del botón con el método 
+        # Connect the rectangle flood button with the on_select_rectangle_flood_button_clicked method
         self.dockwidget.select_rectangle_flood_button.clicked.connect(self.on_select_rectangle_flood_button_clicked)
 
-        # Conectar la señal clicked del botón con el método 
-        self.dockwidget.planetwmts_button.clicked.connect(self.on_planetwmts_button_clicked)
+        # Connect the clicked signal of the button with the on_select_point_button_clicked method
+        self.dockwidget.planetwmts_button.clicked.connect(self.on_planetxyz_button_clicked)
     
-    def on_planetwmts_button_clicked(self):
+    def on_planetxyz_button_clicked(self):
+        """Load Planet XYZ layer"""
         date_planet = self.dockwidget.date_edit_planet.date().toString("yyyy_MM")
         api_key = "PLAKabb0ed6e8a964c6591391d8e8bfa0980"
-        # URI para el servicio WMTS
         uri = "type=xyz&url=https://tiles.planet.com/basemaps/v1/planet-tiles/global_monthly_" + date_planet + "_mosaic/gmap/{z}/{x}/{y}.png?api_key=" + api_key + "&ua=qgis-3.22.16-Białowieża;planet-explorer2.3.0&zmin=0&zmax=22"
-        print(uri)
-
-        # Crea la capa XYZ
         rlayer = QgsRasterLayer(uri, "Global Monthly " + date_planet, "wms")
-
-        # Verifica que la capa es válida
         if not rlayer.isValid():
-            print("Capa falló al cargar!")
+            print("Layer failed to load!")
         else:
-            # Agrega la capa al mapa
             QgsProject.instance().addMapLayer(rlayer)
 
     def unload(self):
@@ -325,7 +245,7 @@ class PlateaGEE:
             self.iface.removeToolBarIcon(action)
 
     def clear_layout(self, layout):
-        """ Elimina todos los widgets del layout dado. """
+        """Remove all widgets from the layout"""
         if layout is not None:
             while layout.count():
                 child = layout.takeAt(0)
@@ -334,32 +254,8 @@ class PlateaGEE:
                     widget.deleteLater()
     
     def create_plot(self, data):
-        # Extraer las listas de tiempo, NDVI y NDMI
-        time = [entry['time'] for entry in data]
-        ndvi = [entry['NDVI'] for entry in data]
-        ndmi = [entry['NDMI'] for entry in data]
-
-        time = [datetime.strptime(d, '%Y-%m-%d') for d in time]
-        
-        ranges = [(-0.2, 0), (0, 0.2), (0.2, 0.5), (0.5, 1)]
-        colors = ['#a50026', '#f46d43', '#ffffbf', '#1a9850']
-
-        # Crear el gráfico con Matplotlib
-        plt.rc('font', family='serif')
-        fig, ax = plt.subplots()  # Crear la figura y los ejes aquí
-        ax.plot(time, ndvi, marker='o', label='NDVI')
-        ax.plot(time, ndmi, marker='o', label='NDMI')
-        ax.set_title('NDVI y NDMI')
-        ax.set_ylim([-0.2, 1])
-        for color, range in zip(colors, ranges):
-            ax.fill_between(time, range[0], range[1], facecolor=color, alpha=0.3)
-        ax.xaxis.set_major_locator(mdates.AutoDateLocator())  # Usa AutoDateLocator para manejar automáticamente los ticks
-        ax.xaxis.set_major_formatter(mdates.DateFormatter('%m-%d'))  # Formatea los ticks como deseas
-        fig.autofmt_xdate()  # Hace que los ticks en el eje x sean más legibles
-        ax.legend()  # Añade una leyenda
-        ax.grid()  # Añade una cuadrícula
-        print("Plot created")
-
+        fig = create_plot_series(data)
+    
         # Crear un FigureCanvasQTAgg para mostrar el gráfico de Matplotlib en el plugin
         plot_canvas = FigureCanvas(fig)
 
@@ -400,12 +296,12 @@ class PlateaGEE:
     
 
     def on_ok_button_clicked(self):
-        # Leemos las coordenadas y fechas desde los campos en el formulario
+        # Read the coordinates and dates from the fields in the form
         lon_text = self.dockwidget.lon_input.text()
         lat_text = self.dockwidget.lat_input.text()
 
-        start_date = self.dockwidget.start_date_edit.date().toString("yyyy-MM-dd")
-        end_date = self.dockwidget.end_date_edit.date().toString("yyyy-MM-dd")
+        start_date = self.dockwidget.start_date_edit_series.date().toString("yyyy-MM-dd")
+        end_date = self.dockwidget.end_date_edit_series.date().toString("yyyy-MM-dd")
 
         if not lon_text or not lat_text:
             QMessageBox.critical(None, "Error", "Por favor, ingrese valores de longitud y latitud.")
@@ -419,36 +315,13 @@ class PlateaGEE:
         data = data_to_json(data)
         
         self.create_plot(data)
-
-        # Ocultar campos de entrada y mostrar el gráfico
-        self.dockwidget.lon_label.hide()
-        self.dockwidget.lat_label.hide()
-        self.dockwidget.start_date_label.hide()
-        self.dockwidget.end_date_label.hide()
-        self.dockwidget.lon_input.hide()
-        self.dockwidget.lat_input.hide()
-        self.dockwidget.start_date_edit.hide()
-        self.dockwidget.end_date_edit.hide()
-        self.dockwidget.plot_widget.show()
-        self.dockwidget.back_button.show()
-    
-    def on_back_button_clicked(self):
-        self.dockwidget.plot_widget.hide()
-        self.dockwidget.lon_label.show()
-        self.dockwidget.lat_label.show()
-        self.dockwidget.start_date_label.show()
-        self.dockwidget.end_date_label.show()
-        self.dockwidget.lon_input.show()
-        self.dockwidget.lat_input.show()
-        self.dockwidget.start_date_edit.show()
-        self.dockwidget.end_date_edit.show()
     
     def on_polygon_flood_button_clicked(self, layer):
-        # Obtener la capa temporal
-        start_date = self.dockwidget.start_date_edit.date().toString("yyyy-MM-dd")
-        end_date = self.dockwidget.end_date_edit.date().toString("yyyy-MM-dd")
+        # Get the temporal layer
+        start_date = self.dockwidget.start_date_edit_flood.date().toString("yyyy-MM-dd")
+        end_date = self.dockwidget.end_date_edit_flood.date().toString("yyyy-MM-dd")
 
-        # Extraer las coordenadas del rectángulo
+        # Extract the coordinates of the rectangle
         lon_min = layer.extent().xMinimum()
         lat_min = layer.extent().yMinimum()
         lon_max = layer.extent().xMaximum()
@@ -460,11 +333,12 @@ class PlateaGEE:
         self.loadKml(url)
 
     def on_polygon_serie_button_clicked(self, layer):
-        # Obtener la capa temporal
-        start_date = self.dockwidget.start_date_edit.date().toString("yyyy-MM-dd")
-        end_date = self.dockwidget.end_date_edit.date().toString("yyyy-MM-dd")
+        """Create a plot with the NDVI or NDMI values of the selected polygon"""
+        # Get the temporal layer
+        start_date = self.dockwidget.start_date_edit_series.date().toString("yyyy-MM-dd")
+        end_date = self.dockwidget.end_date_edit_series.date().toString("yyyy-MM-dd")
 
-        # Extraer las coordenadas del rectángulo
+        # Extract the coordinates of the rectangle
         lon_min = layer.extent().xMinimum()
         lat_min = layer.extent().yMinimum()
         lon_max = layer.extent().xMaximum()
@@ -476,34 +350,16 @@ class PlateaGEE:
 
         self.create_plot(data)
 
-        # Ocultar campos de entrada y mostrar el gráfico
-        self.dockwidget.lon_label.hide()
-        self.dockwidget.lat_label.hide()
-        self.dockwidget.start_date_label.hide()
-        self.dockwidget.end_date_label.hide()
-        self.dockwidget.lon_input.hide()
-        self.dockwidget.lat_input.hide()
-        self.dockwidget.start_date_edit.hide()
-        self.dockwidget.end_date_edit.hide()
-        self.dockwidget.plot_widget.show()
-        self.dockwidget.back_button.show()
-    
-
     def transform_rectangle(self, rectangle):
-        # Crear objetos CRS para los sistemas de coordenadas de origen y destino
+        """Transforms the rectangle from the canvas CRS to EPSG:4326"""
         source_crs = QgsCoordinateReferenceSystem(25830)
         dest_crs = QgsCoordinateReferenceSystem(4326)
-
-        # Crear una transformación de coordenadas
         transform = QgsCoordinateTransform(source_crs, dest_crs, QgsProject.instance())
-
-        # Transformar las coordenadas
         rectangle = transform.transformBoundingBox(rectangle)
-
-        # Devolver el rectángulo transformado
         return rectangle
 
     def on_rectangle_flood_selected(self, rectangle):
+        """Creates a rectangle layer and calls the on_polygon_flood_button_clicked method"""
         rectangle = self.transform_rectangle(rectangle)
         if self.rectangle_layer_flood is not None:
             QgsProject.instance().removeMapLayer(self.rectangle_layer_flood)
@@ -518,69 +374,48 @@ class PlateaGEE:
         self.iface.mapCanvas().unsetMapTool(self.rectangle_tool)
 
     def on_select_rectangle_flood_button_clicked(self):
+        """Creates a rectangle map tool and connects the rectangleSelected signal to the on_rectangle_flood_selected method"""
         self.rectangle_tool = RectangleMapTool(self.iface.mapCanvas())
         self.rectangle_tool.rectangleSelected.connect(self.on_rectangle_flood_selected)
         self.iface.mapCanvas().setMapTool(self.rectangle_tool)
 
     def on_select_rectangle_series_button_clicked(self):
+        """Creates a rectangle map tool and connects the rectangleSelected signal to the on_rectangle_series_selected method"""
         self.rectangle_tool = RectangleMapTool(self.iface.mapCanvas()) # Crear la herramienta de selección de rectángulo
         self.rectangle_tool.rectangleSelected.connect(self.on_rectangle_series_selected) # Conectar la señal rectangleSelected a una función que maneje el rectángulo seleccionado
         self.iface.mapCanvas().setMapTool(self.rectangle_tool) # Activar la herramienta de selección de rectángulo
 
     def on_rectangle_series_selected(self, rectangle):
-        # Transformar el rectángulo de EPSG:25830 a EPSG:4326
+        """Creates a rectangle layer and calls the on_polygon_serie_button_clicked method"""
         rectangle = self.transform_rectangle(rectangle)
-
-        # Si ya existe una capa, eliminarla
         if self.rectangle_layer_flood is not None:
             QgsProject.instance().removeMapLayer(self.rectangle_layer_flood)
-
-        # Crear una capa en memoria para almacenar el rectángulo
         layer = QgsVectorLayer('Polygon?crs=epsg:4326', 'selected_area_serie', 'memory')
-
-        # set transparency
         layer.setOpacity(0.5)
-        
-        # Crear un objeto QgsFeature y asignarle una geometría de polígono a partir del rectángulo
         feature = QgsFeature()
         feature.setGeometry(QgsGeometry.fromRect(rectangle))
-
-        # Añadir el objeto QgsFeature a la capa
         layer.dataProvider().addFeatures([feature])
-
-        # Añadir la capa al mapa
         QgsProject.instance().addMapLayer(layer)
-
-        # Almacenar la referencia a la capa
         self.rectangle_layer_flood = layer
-
-        # Hacer algo con las coordenadas (por ejemplo, imprimirlas en la consola)
         self.on_polygon_serie_button_clicked(layer=layer)
-
-        # Desactivar la herramienta de selección de rectángulo
         self.iface.mapCanvas().unsetMapTool(self.rectangle_tool)
 
-    def canvasClicked(self, point, button):
+    def canvasClicked(self, point):
+        """Transforms the point from the canvas CRS to EPSG:4326 and sets the coordinates in the inputs"""
         source_crs = QgsCoordinateReferenceSystem("EPSG:25830")
         dest_crs = QgsCoordinateReferenceSystem("EPSG:4326")
-
-        # Crear un objeto QgsCoordinateTransform utilizando los CRS
         transform = QgsCoordinateTransform(source_crs, dest_crs, QgsProject.instance())
-
-        # Transformar el punto
         transformed_point = transform.transform(point)
-
-        # Establecer las coordenadas transformadas en los campos de entrada
         self.dockwidget.lon_input.setText(str(round(transformed_point.x(), 4)))
         self.dockwidget.lat_input.setText(str(round(transformed_point.y(), 4)))
-
-        # Desactivar la herramienta de selección de puntos
         self.iface.mapCanvas().unsetMapTool(self.select_point_tool)
     
     def on_select_point_button_clicked(self):
+        """Creates a point map tool and connects the canvasClicked signal to the canvasClicked method"""
         self.select_point_tool = QgsMapToolEmitPoint(self.iface.mapCanvas())
         self.iface.mapCanvas().setMapTool(self.select_point_tool)
         self.select_point_tool.canvasClicked.connect(self.canvasClicked)
 
     def run(self):
+        """Run method that performs all the real work"""
         self.dockwidget.show()

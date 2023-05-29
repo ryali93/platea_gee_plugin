@@ -174,7 +174,7 @@ def create_query_flood(lon_min, lat_min, lon_max, lat_max, start_date, end_date)
         return anom.divide(basesd) \
             .set({'system:time_start': anom.get('system:time_start')})
 
-    def mapFloods(z, zvv_thd=-3, zvh_thd=-3, pow_thd=55, elev_thd=1400, slp_thd=15):
+    def mapFloods(z, zvv_thd=-3, zvh_thd=-3, pow_thd=55, elev_thd=1500, slp_thd=15):
         # JRC water mask
         jrc = ee.ImageCollection("JRC/GSW1_1/MonthlyHistory").filterDate('2016-01-01', '2019-01-01')
         jrcvalid = jrc.map(lambda x: x.gt(0)).sum()

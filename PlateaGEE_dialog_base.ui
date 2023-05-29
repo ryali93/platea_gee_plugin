@@ -20,8 +20,9 @@
    <string>Generación de información satelital</string>
   </property>
   <property name="windowIcon">
-   <iconset resource="../resources.qrc">
-    <normaloff>:/plugins/plateagee/icons/satellite_64.png</normaloff>:/plugins/plateagee/icons/satellite_64.png</iconset>
+    <iconset>
+      <normaloff>:/plugins/plateagee/icons/satellite_64.png</normaloff>
+    </iconset>
   </property>
   <layout class="QGridLayout" name="gridLayout_g1">
 
@@ -32,6 +33,9 @@
 
         <item>
           <widget class="QgsCollapsibleGroupBox" name="mGroupBox">
+            <property name="checked">
+              <bool>false</bool>
+            </property>
             <property name="font">
               <font>
                 <pointsize>12</pointsize>
@@ -48,31 +52,31 @@
               <item row="0" column="0">
                 <layout class="QHBoxLayout" name="horizontalLayout" stretch="0,10,0,10">
                   <item>
-                    <widget class="QLabel" name="start_date_label">
+                    <widget class="QLabel" name="start_date_label_series">
                       <property name="text">
                         <string>Fecha inicio:</string>
                       </property>
                     </widget>
                   </item>
                   <item>
-                    <widget class="QDateEdit" name="start_date_edit"/>
+                    <widget class="QDateEdit" name="start_date_edit_series"/>
                   </item>
                   <item>
-                    <widget class="QLabel" name="end_date_label">
+                    <widget class="QLabel" name="end_date_label_series">
                       <property name="text">
                         <string>Fecha fin:</string>
                       </property>
                     </widget>
                   </item>
                   <item>
-                    <widget class="QDateEdit" name="end_date_edit"/>
+                    <widget class="QDateEdit" name="end_date_edit_series"/>
                   </item>
                 </layout>
               </item>
             
-              <!-- Group 1: Get coordinates -->
+              <!-- Group 2: Get coordinates -->
               <item row="1" column="0">
-                <layout class="QHBoxLayout" name="horizontalLayout_1" stretch="0,10,0,10,0,0">
+                <layout class="QHBoxLayout" name="horizontalLayout_1" stretch="0,10,0,10,0,0,0">
                   <item>
                     <widget class="QLabel" name="lon_label">
                       <property name="text">
@@ -95,9 +99,20 @@
                   </item>
                   <item>
                     <widget class="QPushButton" name="select_point_button">
-                      <property name="text">
-                        <string>Punto</string>
-                      </property>
+                        <property name="icon">
+                            <iconset>
+                                <normaloff>:/plugins/plateagee/icons/mActionAdd.png</normaloff>
+                            </iconset>
+                        </property>
+                    </widget>
+                  </item>
+                  <item>
+                    <widget class="QPushButton" name="select_rectangle_series_button">
+                        <property name="icon">
+                            <iconset>
+                                <normaloff>:/plugins/plateagee/icons/square.png</normaloff>
+                            </iconset>
+                        </property>
                     </widget>
                   </item>
                   <item>
@@ -109,20 +124,20 @@
                   </item>
                 </layout>
               </item>
-
-              <!-- Group 3: Select area as rectangle -->
+              
+              <!-- Group 3: Plot series -->
               <item row="2" column="0">
-                <layout class="QHBoxLayout" name="horizontalLayout_2" stretch="0">
-                  <item>
-                    <widget class="QPushButton" name="select_rectangle_series_button">
-                      <property name="text">
-                        <string>Seleccionar área</string>
-                      </property>
-                    </widget>
-                  </item>
-                </layout>
-              </item>
-
+                <widget class="QWidget" name="plot_widget">
+                    <property name="geometry">
+                        <rect>
+                            <x>20</x>
+                            <y>20</y>
+                            <width>360</width>
+                            <height>200</height>
+                        </rect>
+                    </property>
+                </widget>
+            </item>
             </layout>
           </widget>
         </item>
@@ -131,6 +146,9 @@
         
         <item>
           <widget class="QgsCollapsibleGroupBox" name="mGroupBox_1">
+            <property name="checked">
+              <bool>false</bool>
+            </property>
             <property name="font">
               <font>
                 <pointsize>12</pointsize>
@@ -143,7 +161,33 @@
             </property>
             <layout class="QGridLayout" name="gridLayout_1">
               <!-- Group 1: Select area as rectangle -->
+
               <item row="0" column="0">
+                <layout class="QHBoxLayout" name="horizontalLayout" stretch="0,10,0,10">
+                  <item>
+                    <widget class="QLabel" name="start_date_label_flood">
+                      <property name="text">
+                        <string>Fecha inicio:</string>
+                      </property>
+                    </widget>
+                  </item>
+                  <item>
+                    <widget class="QDateEdit" name="start_date_edit_flood"/>
+                  </item>
+                  <item>
+                    <widget class="QLabel" name="end_date_label_flood">
+                      <property name="text">
+                        <string>Fecha fin:</string>
+                      </property>
+                    </widget>
+                  </item>
+                  <item>
+                    <widget class="QDateEdit" name="end_date_edit_flood"/>
+                  </item>
+                </layout>
+              </item>
+              
+              <item row="1" column="0">
                 <layout class="QHBoxLayout" name="horizontalLayout_4" stretch="0">
                   <item>
                     <widget class="QPushButton" name="select_rectangle_flood_button">
@@ -161,6 +205,9 @@
         <!-- Supergroup 3 -->
         <item>
           <widget class="QgsCollapsibleGroupBox" name="mGroupBox_2">
+            <property name="checked">
+              <bool>false</bool>
+            </property>
             <property name="font">
               <font>
                 <pointsize>12</pointsize>
@@ -186,7 +233,6 @@
                   <item>
                     <widget class="QDateEdit" name="date_edit_planet"/>
                   </item>
-
                   <item>
                     <widget class="QPushButton" name="planetwmts_button">
                       <property name="text">
@@ -199,27 +245,6 @@
               </item>
             </layout>
           </widget>
-        </item>
-
-        <item>
-          <widget class="QPushButton" name="back_button">
-            <property name="text">
-              <string>Regresar</string>
-            </property>
-          </widget>
-        </item>
-
-        <item>
-            <widget class="QWidget" name="plot_widget">
-                <property name="geometry">
-                    <rect>
-                        <x>20</x>
-                        <y>20</y>
-                        <width>360</width>
-                        <height>200</height>
-                    </rect>
-                </property>
-            </widget>
         </item>
 
         <item>

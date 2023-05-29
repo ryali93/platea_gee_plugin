@@ -1,5 +1,7 @@
 <RCC>
     <qresource prefix="/plugins/plateagee">
+        <file>icons/square.png</file>
+        <file>icons/mActionAdd.png</file>
         <file>icons/satellite_64.png</file>
         <file>icons/satellite.png</file>
         <file>icons/satellite.svg</file>
