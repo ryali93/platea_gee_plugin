@@ -27,7 +27,7 @@ from qgis.core import QgsCoordinateTransform, QgsCoordinateReferenceSystem, QgsP
 from qgis.core import QgsVectorLayer, QgsFeature, QgsGeometry
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication, QDate
-from qgis.PyQt.QtWidgets import QAction, QLineEdit, QMessageBox, QVBoxLayout
+from qgis.PyQt.QtWidgets import QAction, QLineEdit, QMessageBox, QVBoxLayout, QSlider
 
 import requests
 import tempfile
@@ -62,7 +62,7 @@ class PlateaGEE:
             'i18n',
             'PlateaGEE_{}.qm'.format(locale))
 
-        self.creds = get_credentials("https://ryali93.users.earthengine.app/view/plateaapi") # "https://ryali93.users.earthengine.app/view/plateaapi"
+        # self.creds = get_credentials("https://ryali93.users.earthengine.app/view/plateaapi") # "https://ryali93.users.earthengine.app/view/plateaapi"
 
         if os.path.exists(locale_path):
             self.translator = QTranslator()
@@ -190,15 +190,19 @@ class PlateaGEE:
 
         # Set the current date and end date
         current_date = QDate.currentDate()
-        start_date = current_date.addDays(-30)
+        start_date = current_date.addDays(-50)
         self.dockwidget.end_date_edit_series.setDate(current_date)
         self.dockwidget.start_date_edit_series.setDate(start_date)
 
         self.dockwidget.end_date_edit_flood.setDate(current_date)
         self.dockwidget.start_date_edit_flood.setDate(start_date)
 
-        # Set the current date for the Planet imagery
-        self.dockwidget.date_edit_planet.setDate(start_date)
+        # Set the range of the spin boxes
+        self.dockwidget.date_edit_planet.setRange(0, 23)
+        self.dockwidget.date_edit_planet.setValue(22)
+        self.dockwidget.date_label_planet.setText(f"Mes: {self.get_date_from_value(22)}")
+
+        self.dockwidget.date_edit_planet.setTickPosition(QSlider.TickPosition.TicksBelow)
 
         # Set the date display format
         date_display_format = "dd/MM/yyyy"
@@ -207,8 +211,6 @@ class PlateaGEE:
 
         self.dockwidget.end_date_edit_flood.setDisplayFormat(date_display_format) # flood
         self.dockwidget.start_date_edit_flood.setDisplayFormat(date_display_format) # flood
-
-        self.dockwidget.date_edit_planet.setDisplayFormat(date_display_format) # planet
 
         # Connect the accepted signal of the button_box with the on_button_box_accepted method
         self.dockwidget.ok_button.clicked.connect(self.on_ok_button_clicked)
@@ -222,12 +224,23 @@ class PlateaGEE:
         # Connect the rectangle flood button with the on_select_rectangle_flood_button_clicked method
         self.dockwidget.select_rectangle_flood_button.clicked.connect(self.on_select_rectangle_flood_button_clicked)
 
-        # Connect the clicked signal of the button with the on_select_point_button_clicked method
+        # 
+        self.dockwidget.date_edit_planet.valueChanged.connect(self.update_date_label)
         self.dockwidget.planetwmts_button.clicked.connect(self.on_planetxyz_button_clicked)
+
+    def update_date_label(self, value):
+        self.dockwidget.date_label_planet.setText(f"Mes: {self.get_date_from_value(value)}")
     
+    def get_date_from_value(self, value):
+        from dateutil.relativedelta import relativedelta
+        current_date = datetime.now()
+        date_from_slider = current_date - relativedelta(months=23-value)
+        return date_from_slider.strftime('%Y-%m')
+
     def on_planetxyz_button_clicked(self):
         """Load Planet XYZ layer"""
-        date_planet = self.dockwidget.date_edit_planet.date().toString("yyyy_MM")
+        date_planet = self.dockwidget.date_label_planet.text().split(": ")[1]
+        date_planet = date_planet.replace("-", "_")
         api_key = "PLAKabb0ed6e8a964c6591391d8e8bfa0980"
         uri = "type=xyz&url=https://tiles.planet.com/basemaps/v1/planet-tiles/global_monthly_" + date_planet + "_mosaic/gmap/{z}/{x}/{y}.png?api_key=" + api_key + "&ua=qgis-3.22.16-Białowieża;planet-explorer2.3.0&zmin=0&zmax=22"
         rlayer = QgsRasterLayer(uri, "Global Monthly " + date_planet, "wms")
@@ -303,15 +316,10 @@ class PlateaGEE:
         start_date = self.dockwidget.start_date_edit_series.date().toString("yyyy-MM-dd")
         end_date = self.dockwidget.end_date_edit_series.date().toString("yyyy-MM-dd")
 
-        if not lon_text or not lat_text:
-            QMessageBox.critical(None, "Error", "Por favor, ingrese valores de longitud y latitud.")
-            return
-
         lon = float(lon_text)
         lat = float(lat_text)
 
-        expression_index = create_query_ndvi_ndmi_point(lon, lat, start_date, end_date)
-        data = get_data(self.creds, expression_index)
+        data = create_query_ndvi_ndmi_point(lon, lat, start_date, end_date)
         data = data_to_json(data)
         
         self.create_plot(data)
@@ -344,19 +352,20 @@ class PlateaGEE:
         lon_max = layer.extent().xMaximum()
         lat_max = layer.extent().yMaximum()
         
-        expression_index = create_query_ndvi_ndmi_polygon(lon_min, lat_min, lon_max, lat_max, start_date, end_date)
-        data = get_data(self.creds, expression_index)
+        data = create_query_ndvi_ndmi_polygon(lon_min, lat_min, lon_max, lat_max, start_date, end_date)
         data = data_to_json(data)
 
         self.create_plot(data)
 
     def transform_rectangle(self, rectangle):
         """Transforms the rectangle from the canvas CRS to EPSG:4326"""
-        source_crs = QgsCoordinateReferenceSystem(25830)
+        source_crs = QgsProject.instance().crs()
+        # source_crs = QgsCoordinateReferenceSystem(25830)
         dest_crs = QgsCoordinateReferenceSystem(4326)
         transform = QgsCoordinateTransform(source_crs, dest_crs, QgsProject.instance())
         rectangle = transform.transformBoundingBox(rectangle)
         return rectangle
+        
 
     def on_rectangle_flood_selected(self, rectangle):
         """Creates a rectangle layer and calls the on_polygon_flood_button_clicked method"""
@@ -402,7 +411,8 @@ class PlateaGEE:
 
     def canvasClicked(self, point):
         """Transforms the point from the canvas CRS to EPSG:4326 and sets the coordinates in the inputs"""
-        source_crs = QgsCoordinateReferenceSystem("EPSG:25830")
+        # source_crs = QgsCoordinateReferenceSystem("EPSG:25830")
+        source_crs = QgsProject.instance().crs()
         dest_crs = QgsCoordinateReferenceSystem("EPSG:4326")
         transform = QgsCoordinateTransform(source_crs, dest_crs, QgsProject.instance())
         transformed_point = transform.transform(point)

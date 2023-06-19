@@ -225,13 +225,16 @@
                   <item>
                     <widget class="QLabel" name="date_label_planet">
                       <property name="text">
-                        <string>Seleccionar mes:</string>
+                        <string>Mes:</string>
                       </property>
                     </widget>
                   </item>
-
                   <item>
-                    <widget class="QDateEdit" name="date_edit_planet"/>
+                    <widget class="QSlider" name="date_edit_planet">
+                      <property name="orientation">
+                        <enum>Qt::Horizontal</enum>
+                      </property>
+                    </widget>
                   </item>
                   <item>
                     <widget class="QPushButton" name="planetwmts_button">

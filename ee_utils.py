@@ -1,19 +1,8 @@
-from bs4 import BeautifulSoup
-import requests
-import re
 import json
 import ee
 import pandas as pd
 
 ee.Initialize()
-
-def get_credentials(url):
-    req = requests.get(url) # "https://ryali93.users.earthengine.app/view/plateaapi"
-    soup = BeautifulSoup(req.content, 'html.parser')
-    data = soup.find_all('script')[3]
-    match = re.search(r'{.*}', data.string)
-    creds = json.loads(match.group(0))
-    return creds
 
 def create_query_ndvi_ndmi_point(lon, lat, start_date, end_date):
     # point
@@ -36,10 +25,9 @@ def create_query_ndvi_ndmi_point(lon, lat, start_date, end_date):
     sentinel2_ndvi_ndmi = sentinel2.map(calc_ndvi).map(calc_ndmi)
 
     # Extraer la serie de tiempo de NDVI y NDMI en el punto
-    series = sentinel2_ndvi_ndmi.getRegion(point, 10).getInfo()
+    series = sentinel2_ndvi_ndmi.getRegion(point, 10)
     
-    data = ee.String.encodeJSON(series)
-    return data.serialize()    
+    return series.getInfo()
 
 def create_query_ndvi_ndmi_polygon(lon_min, lat_min, lon_max, lat_max, start_date, end_date):
     # roi
@@ -67,10 +55,9 @@ def create_query_ndvi_ndmi_polygon(lon_min, lat_min, lon_max, lat_max, start_dat
     sentinel2_ndvi_ndmi_mean = sentinel2_ndvi_ndmi.map(reduce_region).select(['NDVI', 'NDMI'])
 
     # Extraer la serie de tiempo de las medias de NDVI y NDMI en la región
-    series = sentinel2_ndvi_ndmi_mean.filter(ee.Filter.notNull(['NDVI', 'NDMI'])).getRegion(ee.Geometry.Point(lon_min, lat_min), 10).getInfo()
+    series = sentinel2_ndvi_ndmi_mean.filter(ee.Filter.notNull(['NDVI', 'NDMI'])).getRegion(ee.Geometry.Point(lon_min, lat_min), 10)
 
-    data = ee.String.encodeJSON(series)
-    return data.serialize()
+    return series.getInfo()
 
 def create_query_flood(lon_min, lat_min, lon_max, lat_max, start_date, end_date):
     # Create AOI
@@ -208,22 +195,6 @@ def create_query_flood(lon_min, lat_min, lon_max, lat_max, start_date, end_date)
         filename = "flood"
         )
     return vector_url
-
-def get_data(creds, expression):
-    url = 'https://content-earthengine.googleapis.com/v1alpha/projects/earthengine-legacy/value:compute'
-
-    headers = {
-        'authority': 'content-earthengine.googleapis.com',
-        'authorization': f'Bearer {creds["authToken"]}',
-        'content-type': 'application/json',
-        'origin': 'https://ryali93.users.earthengine.app',   
-        'referer': 'https://ryali93.users.earthengine.app/', 
-    }
-
-    data = json.dumps({"expression": json.loads(expression)})
-    response = requests.post(url, headers=headers, data=data)
-    d = json.loads(response.text)
-    return json.loads(d["result"])
 
 def data_to_json(data):
     df = pd.DataFrame(data[1:], columns=data[0])
